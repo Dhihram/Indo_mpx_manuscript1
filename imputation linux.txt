@@ -1,0 +1,93 @@
+## Imputation 
+
+# Without Imputation or deleting
+# File path
+alignment_file="asean_indo_aligned.fasta"
+
+# Check if the file exists
+if [[ ! -f "$alignment_file" ]]; then
+    echo "Error: Input file is missing."
+    exit 1
+fi
+
+# Add a final newline to the alignment file (if needed)
+if [ -n "$(tail -c1 "$alignment_file")" ]; then
+    echo >> "$alignment_file"
+fi
+
+# Use `awk` to replace 'N' with '-'
+awk '
+{
+    if ($0 ~ /^>/) {
+        print $0;  # Print header lines unchanged
+    } else {
+        seq = toupper($0);  # Convert sequence to uppercase
+        modified = "";
+        for (i = 1; i <= length(seq); i++) {
+            base = substr(seq, i, 1);
+            if (base == "N") {
+                modified = modified "-";  # Replace ambiguous base with "-"
+            } else {
+                modified = modified base;
+            }
+        }
+        print modified;
+    }
+}
+' "$alignment_file" > asean_fix_alignment.fasta
+
+# With imputation from consensus
+
+# Using EMBOSS
+conda install bioconda::emboss
+cons -sequence asean_indo_aligned.fasta -outseq consensus2.fasta
+
+
+#Using the code
+
+## File paths
+alignment_file="asean_indo_aligned.fasta"
+consensus_file="consensus2.fasta"
+
+## Check if files exist
+if [[ ! -f "$alignment_file" || ! -f "$consensus_file" ]]; then
+    echo "Error: Input files are missing."
+    exit 1
+fi
+
+## Add a final newline to the alignment file (if needed)
+if [ -n "$(tail -c1 "$alignment_file")" ]; then
+    echo >> "$alignment_file"
+fi
+
+## Extract consensus sequence (assuming one header and one sequence in consensus.fasta)
+consensus=$(grep -v "^>" "$consensus_file" | tr -d '\n' | tr 'a-z' 'A-Z')
+
+if [[ -z "$consensus" ]]; then
+    echo "Error: Consensus sequence is empty."
+    exit 1
+fi
+
+## Use `awk` for faster processing
+awk -v CONSENSUS="$consensus" '
+BEGIN { 
+    consensus_length = length(CONSENSUS);
+}
+{
+    if ($0 ~ /^>/) {
+        print $0;  # Print header lines unchanged
+    } else {
+        seq = toupper($0);  # Convert sequence to uppercase
+        modified = "";
+        for (i = 1; i <= length(seq); i++) {
+            base = substr(seq, i, 1);
+            if (base == "N") {
+                modified = modified substr(CONSENSUS, i, 1);
+            } else {
+                modified = modified base;
+            }
+        }
+        print modified;
+    }
+}
+' "$alignment_file" > asean_fix_alignment2.fasta

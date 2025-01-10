@@ -11,80 +11,7 @@ cat asean_seq_ref_aligned.fasta modified_alignment.fasta > asean_indo.fasta
 # 2nd Alignment Indonesia with ASEAN
 mafft  asean_indo.fasta > asean_indo_aligned.fasta
 
-# Imputation
-alignment_file="asean_indo_aligned.fasta"
-
-# Check if the file exists
-if [[ ! -f "$alignment_file" ]]; then
-    echo "Error: Input file is missing."
-    exit 1
-fi
-
-# Add a final newline to the alignment file (if needed)
-if [ -n "$(tail -c1 "$alignment_file")" ]; then
-    echo >> "$alignment_file"
-fi
-
-# Use `awk` to replace 'N' with '-'
-awk '
-{
-    if ($0 ~ /^>/) {
-        print $0;  # Print header lines unchanged
-    } else {
-        seq = toupper($0);  # Convert sequence to uppercase
-        modified = "";
-        for (i = 1; i <= length(seq); i++) {
-            base = substr(seq, i, 1);
-            if (base == "N") {
-                modified = modified "-";  # Replace ambiguous base with "-"
-            } else {
-                modified = modified base;
-            }
-        }
-        print modified;
-    }
-}
-' "$alignment_file" > asean_indo_aligned_mod.fasta
-
-
-awk '/^>/ {print ">" substr($1, 2, index($1, "|") - 2); next} {print}' asean_indo_aligned_mod.fasta > treetime_mpox.fasta
-
-
-# treatment for beside ACGT
-alignment_file="asean_indo_aligned_mod2.fasta"
-
-# Check if the file exists
-if [[ ! -f "$alignment_file" ]]; then
-    echo "Error: Input file is missing."
-    exit 1
-fi
-
-# Add a final newline to the alignment file (if needed)
-if [ -n "$(tail -c1 "$alignment_file")" ]; then
-    echo >> "$alignment_file"
-fi
-
-# Use `awk` to replace characters besides A, C, G, T with '-'
-awk '
-{
-    if ($0 ~ /^>/) {
-        print $0;  # Print header lines unchanged
-    } else {
-        seq = toupper($0);  # Convert sequence to uppercase
-        modified = "";
-        for (i = 1; i <= length(seq); i++) {
-            base = substr(seq, i, 1);
-            if (base !~ /[ACGT]/) {  # Replace non-ACGT bases with "-"
-                modified = modified "-";
-            } else {
-                modified = modified base;
-            }
-        }
-        print modified;
-    }
-}
-' "$alignment_file" > asean_fix_alignment.fasta
-
+## Tree Inferring with IQTREE
 iqtree -s asean_fix_alignment.fasta -m MFP -bb 1000 
 
 
@@ -94,6 +21,4 @@ cat *.fasta > mpox_indo_combined.fasta
 
 mafft  mpox_indo_combined.fasta> mpox_indo_combined_aligned.fasta
 
-trimal -in mpox_indo_combined_aligned.fasta -out mpox_indo_fix.fasta -gt 0.9
-
-iqtree -s mpox_indo_fix.fasta -m MFP -bb 1000 
+iqtree -s mpox_indo_combined_aligned.fasta -m MFP -bb 1000 
